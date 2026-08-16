@@ -50,9 +50,7 @@ CREATE TABLE IF NOT EXISTS trades (
     shares INTEGER NOT NULL,
     price REAL NOT NULL,
     total_amount REAL NOT NULL,
-    analysis_id INTEGER,
     timestamp TEXT NOT NULL,
-    FOREIGN KEY (analysis_id) REFERENCES analysis_history(id)
 );
 """
 
@@ -152,3 +150,37 @@ def get_recent_history(comp: str, limit: int = 1):
     with _conn() as conn:
         rows = conn.execute(sql, (comp, limit)).fetchall()
         return [dict(r) for r in rows]
+
+def execute_paper_trade(comp: str, action: str, shares:int, price: float):
+    """Executes a paper trade, updating cash, trade logs, and porfolio state"""
+    ts = datetime.now(timezone.utc).isoformat
+    total_cost = shares * price
+
+    try:
+        with _conn() as c:
+            account = c.execute("SELECT cash_balance FROM account_state ORDER BY id DESC LIMIT 1").fetchone()
+            cash = account["cash_balance"]
+
+            if action == "BUY" and cash < total_cost:
+                logger.warning("Insufficient cash to BUY %d shares of %s", shares, comp)
+                return False
+            else:
+                c.execute(
+                    """INSERT INTO trades (comp, action, shares, price, total_amount, analysis_id, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)""", 
+                    (comp, action, shares, price, total_cost, ts)
+                )
+
+            curr_pos = c.execute("SELECT shares, avg_entry_price FROM portfolio WHERE comp = ?", (comp,)).fetchone()   
+            if action == "BUY":
+                new_cash = cash - total_cost
+                if curr_pos:
+                    curr_shares = curr_pos["shares"]
+                    new_shares = curr_shares + shares
+                    new_avg = ((curr_shares * curr_pos["avg_entry_price"]) + total_cost) / (new_shares)
+                    c.execute("UPDATE portfolio SET shares = ?, avg_entry_price = ?, updated_at = ? WHERE comp = ?", (new_shares, new_avg, ts, comp))
+                else:
+                    c.execute("INSERT INTO portfolio (comp, shares, avg_entry_price, updated_at) VALUES (?, ?, ?, ?)", (comp, shares, price, ts))
+
+             
+    except Exception as exc:
+        logger.error("Trade failed: %s", exc)
