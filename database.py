@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS news (
     pub_date TEXT,
     sentiment_title REAL,
     sentiment_summary REAL
-)
+);
 """
 
 _CREATE_HISTORY_TABLE = """
@@ -29,14 +29,13 @@ CREATE TABLE IF NOT EXISTS analysis_history (
     stock_price REAL,
     avg_sentiment REAL,
     articles_count INTEGER
-)
+);
 """
 
 _CREATE_PORTFOLIO_TABLE = """
 CREATE TABLE IF NOT EXISTS portfolio (
     comp TEXT PRIMARY KEY,
     shares INTEGER NOT NULL DEFAULT 0,
-    avg_entry_price REAL NOT NULL,
     updated_at TEXT NOT NULL
 );
 """
@@ -50,7 +49,7 @@ CREATE TABLE IF NOT EXISTS trades (
     shares INTEGER NOT NULL,
     price REAL NOT NULL,
     total_amount REAL NOT NULL,
-    timestamp TEXT NOT NULL,
+    timestamp TEXT NOT NULL
 );
 """
 
@@ -58,8 +57,6 @@ _CREATE_ACCOUNT_TABLE = """
 CREATE TABLE IF NOT EXISTS account_state (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cash_balance REAL NOT NULL,
-    portfolio_value REAL NOT NULL,
-    total_equity REAL NOT NULL,
     timestamp TEXT NOT NULL
 );
 """
@@ -84,8 +81,8 @@ def init_db(initial_cash: float = 10000.00):
             if row["count"] == 0:
                 ts = datetime.now(timezone.utc).isoformat()
                 c.execute(
-                    "INSERT INTO account_state (cash_balance, portfolio_value, total_equity, timestamp) VALUES (?, ?, ?, ?)",
-                    (initial_cash, 0.0, initial_cash, ts)
+                    "INSERT INTO account_state (cash_balance, timestamp) VALUES (?, ?)",
+                    (initial_cash, ts)
                 )
     except Exception as exc:
         logger.error("DB init failed: %s", exc)
@@ -153,34 +150,59 @@ def get_recent_history(comp: str, limit: int = 1):
 
 def execute_paper_trade(comp: str, action: str, shares:int, price: float):
     """Executes a paper trade, updating cash, trade logs, and porfolio state"""
-    ts = datetime.now(timezone.utc).isoformat
+    ts = datetime.now(timezone.utc).isoformat()
     total_cost = shares * price
-
     try:
         with _conn() as c:
             account = c.execute("SELECT cash_balance FROM account_state ORDER BY id DESC LIMIT 1").fetchone()
-            cash = account["cash_balance"]
-
-            if action == "BUY" and cash < total_cost:
-                logger.warning("Insufficient cash to BUY %d shares of %s", shares, comp)
+            if not account:
+                logger.error("Account state not initialized. Initialize dbs first")
                 return False
-            else:
+            cash = account["cash_balance"]
+            new_cash = cash
+
+
+            curr_pos = c.execute("SELECT shares FROM portfolio WHERE comp = ?", (comp,)).fetchone()
+            if action == "BUY":
+                if cash < total_cost:
+                    logger.warning("Insufficient cash to BUY %d shares of %s", shares, comp)
+                    return False
+                new_cash = cash - total_cost
                 c.execute(
-                    """INSERT INTO trades (comp, action, shares, price, total_amount, analysis_id, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)""", 
+                    """INSERT INTO trades (comp, action, shares, price, total_amount, timestamp) VALUES (?, ?, ?, ?, ?, ?)""", 
                     (comp, action, shares, price, total_cost, ts)
                 )
-
-            curr_pos = c.execute("SELECT shares, avg_entry_price FROM portfolio WHERE comp = ?", (comp,)).fetchone()   
-            if action == "BUY":
-                new_cash = cash - total_cost
                 if curr_pos:
-                    curr_shares = curr_pos["shares"]
-                    new_shares = curr_shares + shares
-                    new_avg = ((curr_shares * curr_pos["avg_entry_price"]) + total_cost) / (new_shares)
-                    c.execute("UPDATE portfolio SET shares = ?, avg_entry_price = ?, updated_at = ? WHERE comp = ?", (new_shares, new_avg, ts, comp))
+                    new_shares = curr_pos["shares"] + shares
+                    c.execute("UPDATE portfolio SET shares = ?, updated_at = ? WHERE comp = ?", (new_shares, ts, comp))
                 else:
-                    c.execute("INSERT INTO portfolio (comp, shares, avg_entry_price, updated_at) VALUES (?, ?, ?, ?)", (comp, shares, price, ts))
+                    c.execute("INSERT INTO portfolio (comp, shares, updated_at) VALUES (?, ?, ?)", (comp, shares, ts))
 
+            elif action == "SELL":
+                if not curr_pos:
+                    logger.warning("No shares availabe for %s", comp)
+                    return False
+                if shares > curr_pos["shares"]:
+                    logger.warning("Insufficient shares to sell. Owned %d, want to sell %d", curr_pos["shares"], shares)
+                    return False
+                new_cash = cash + total_cost
+                new_shares = curr_pos["shares"] - shares
+                c.execute(
+                    """INSERT INTO trades (comp, action, shares, price, total_amount, timestamp) VALUES (?, ?, ?, ?, ?, ?)""", 
+                    (comp, action, shares, price, total_cost, ts)
+                )
+                if new_shares == 0:
+                    c.execute("DELETE FROM portfolio WHERE comp = ?", (comp,))
+                else:
+                    c.execute("UPDATE portfolio SET shares = ?, updated_at = ? WHERE comp = ?", (new_shares, ts, comp))
+
+            else:
+                logger.warning("Action invalid: %s", action)
+                return False
+
+            c.execute("INSERT INTO account_state (cash_balance, timestamp) VALUES (?, ?)", (new_cash, ts))
+            return True
              
     except Exception as exc:
         logger.error("Trade failed: %s", exc)
+        return False
