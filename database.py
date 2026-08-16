@@ -26,9 +26,44 @@ CREATE TABLE IF NOT EXISTS analysis_history (
     pub_date TEXT NOT NULL,
     verdict TEXT,
     confidence_score REAL,
+    stock_price REAL,
     avg_sentiment REAL,
     articles_count INTEGER
 )
+"""
+
+_CREATE_PORTFOLIO_TABLE = """
+CREATE TABLE IF NOT EXISTS portfolio (
+    comp TEXT PRIMARY KEY,
+    shares INTEGER NOT NULL DEFAULT 0,
+    avg_entry_price REAL NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
+
+
+_CREATE_TRADES_TABLE = """
+CREATE TABLE IF NOT EXISTS trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    comp TEXT NOT NULL,
+    action TEXT CHECK(action IN ('BUY', 'SELL')) NOT NULL,
+    shares INTEGER NOT NULL,
+    price REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    analysis_id INTEGER,
+    timestamp TEXT NOT NULL,
+    FOREIGN KEY (analysis_id) REFERENCES analysis_history(id)
+);
+"""
+
+_CREATE_ACCOUNT_TABLE = """
+CREATE TABLE IF NOT EXISTS account_state (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cash_balance REAL NOT NULL,
+    portfolio_value REAL NOT NULL,
+    total_equity REAL NOT NULL,
+    timestamp TEXT NOT NULL
+);
 """
 
 def _conn() -> sqlite3.Connection:
@@ -36,13 +71,24 @@ def _conn() -> sqlite3.Connection:
     c.row_factory = sqlite3.Row
     return c
 
-def init_db():
+def init_db(initial_cash: float = 10000.00):
     """Initialize tables."""
     try:
         with _conn() as c:
             c.execute(_CREATE_NEWS_TABLE)
             c.execute(_CREATE_HISTORY_TABLE)
+            c.execute(_CREATE_ACCOUNT_TABLE)
+            c.execute(_CREATE_PORTFOLIO_TABLE)
+            c.execute(_CREATE_TRADES_TABLE)
             c.execute("CREATE INDEX IF NOT EXISTS idx_news_comp ON news (comp)")
+
+            row = c.execute("SELECT COUNT(*) as count FROM account_state").fetchone()
+            if row["count"] == 0:
+                ts = datetime.now(timezone.utc).isoformat()
+                c.execute(
+                    "INSERT INTO account_state (cash_balance, portfolio_value, total_equity, timestamp) VALUES (?, ?, ?, ?)",
+                    (initial_cash, 0.0, initial_cash, ts)
+                )
     except Exception as exc:
         logger.error("DB init failed: %s", exc)
 
