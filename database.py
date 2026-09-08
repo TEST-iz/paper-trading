@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS analysis_history (
     pub_date TEXT NOT NULL,
     verdict TEXT,
     confidence_score REAL,
-    stock_price REAL,
     avg_sentiment REAL,
     articles_count INTEGER
 );
