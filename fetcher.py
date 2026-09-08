@@ -8,13 +8,21 @@ from database import init_db, save_news_items
 
 logger = logging.getLogger(__name__)
 
-print("Loading FinBERT model (this may take a moment on first run)...")
-finbert = pipeline("text-classification", model="ProsusAI/finbert")
+_finbert_pipeline = None
+
+def get_finbert():
+    """Lazily load and return the FinBERT pipeline instance."""
+    global _finbert_pipeline
+    if _finbert_pipeline is None:
+        logger.info("Loading FinBERT model into memory...")
+        _finbert_pipeline = pipeline("text-classification", model="ProsusAI/finbert")
+    return _finbert_pipeline
 
 def get_finbert_score(content: str):
     if not content:
         return 0.0
 
+    finbert = get_finbert()
     result = finbert(content[:512])[0]
     label = result["label"].lower()
     score = result["score"]

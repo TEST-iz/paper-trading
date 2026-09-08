@@ -148,6 +148,15 @@ def get_recent_history(comp: str, limit: int = 1):
         rows = conn.execute(sql, (comp, limit)).fetchall()
         return [dict(r) for r in rows]
 
+def get_account_state():
+    with _conn() as c:
+        return dict(c.execute("SELECT * FROM account_state ORDER BY id DESC LIMIT 1").fetchone())
+
+def get_portfolio():
+    with _conn() as c:
+        rows = c.execute("SELECT * FROM portfolio WHERE shares > 0").fetchall()
+        return [dict(r) for r in rows]
+
 def execute_paper_trade(comp: str, action: str, shares: int, price: float) -> bool:
     ts = datetime.now(timezone.utc).isoformat()
     total_cost = shares * price
