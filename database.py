@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS account_state (
 def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
+    c.execute("PRAGMA journal_mode=WAL;")
     return c
 
 def init_db(initial_cash: float = 10000.00):
@@ -147,61 +148,68 @@ def get_recent_history(comp: str, limit: int = 1):
         rows = conn.execute(sql, (comp, limit)).fetchall()
         return [dict(r) for r in rows]
 
-def execute_paper_trade(comp: str, action: str, shares:int, price: float):
-    """Executes a paper trade, updating cash, trade logs, and porfolio state"""
+def execute_paper_trade(comp: str, action: str, shares: int, price: float) -> bool:
     ts = datetime.now(timezone.utc).isoformat()
     total_cost = shares * price
+
+    conn = _conn()
     try:
-        with _conn() as c:
-            account = c.execute("SELECT cash_balance FROM account_state ORDER BY id DESC LIMIT 1").fetchone()
+        with conn:
+            account = conn.execute(
+                "SELECT cash_balance FROM account_state ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            
             if not account:
-                logger.error("Account state not initialized. Initialize dbs first")
+                logger.error("Account state not initialized.")
                 return False
+                
             cash = account["cash_balance"]
-            new_cash = cash
 
-
-            curr_pos = c.execute("SELECT shares FROM portfolio WHERE comp = ?", (comp,)).fetchone()
             if action == "BUY":
                 if cash < total_cost:
-                    logger.warning("Insufficient cash to BUY %d shares of %s", shares, comp)
+                    logger.warning("Insufficient cash.")
                     return False
+                
                 new_cash = cash - total_cost
-                c.execute(
-                    """INSERT INTO trades (comp, action, shares, price, total_amount, timestamp) VALUES (?, ?, ?, ?, ?, ?)""", 
+                
+                conn.execute(
+                    "INSERT INTO trades (comp, action, shares, price, total_amount, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
                     (comp, action, shares, price, total_cost, ts)
                 )
+                
+                curr_pos = conn.execute("SELECT shares FROM portfolio WHERE comp = ?", (comp,)).fetchone()
                 if curr_pos:
-                    new_shares = curr_pos["shares"] + shares
-                    c.execute("UPDATE portfolio SET shares = ?, updated_at = ? WHERE comp = ?", (new_shares, ts, comp))
+                    conn.execute("UPDATE portfolio SET shares = ?, updated_at = ? WHERE comp = ?", (curr_pos["shares"] + shares, ts, comp))
                 else:
-                    c.execute("INSERT INTO portfolio (comp, shares, updated_at) VALUES (?, ?, ?)", (comp, shares, ts))
+                    conn.execute("INSERT INTO portfolio (comp, shares, updated_at) VALUES (?, ?, ?)", (comp, shares, ts))
 
             elif action == "SELL":
-                if not curr_pos:
-                    logger.warning("No shares availabe for %s", comp)
+                curr_pos = conn.execute("SELECT shares FROM portfolio WHERE comp = ?", (comp,)).fetchone()
+                if not curr_pos or shares > curr_pos["shares"]:
+                    logger.warning("Invalid position/shares for SELL.")
                     return False
-                if shares > curr_pos["shares"]:
-                    logger.warning("Insufficient shares to sell. Owned %d, want to sell %d", curr_pos["shares"], shares)
-                    return False
+
                 new_cash = cash + total_cost
                 new_shares = curr_pos["shares"] - shares
-                c.execute(
-                    """INSERT INTO trades (comp, action, shares, price, total_amount, timestamp) VALUES (?, ?, ?, ?, ?, ?)""", 
+
+                conn.execute(
+                    "INSERT INTO trades (comp, action, shares, price, total_amount, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
                     (comp, action, shares, price, total_cost, ts)
                 )
+
                 if new_shares == 0:
-                    c.execute("DELETE FROM portfolio WHERE comp = ?", (comp,))
+                    conn.execute("DELETE FROM portfolio WHERE comp = ?", (comp,))
                 else:
-                    c.execute("UPDATE portfolio SET shares = ?, updated_at = ? WHERE comp = ?", (new_shares, ts, comp))
+                    conn.execute("UPDATE portfolio SET shares = ?, updated_at = ? WHERE comp = ?", (new_shares, ts, comp))
 
             else:
-                logger.warning("Action invalid: %s", action)
                 return False
 
-            c.execute("INSERT INTO account_state (cash_balance, timestamp) VALUES (?, ?)", (new_cash, ts))
+            conn.execute("INSERT INTO account_state (cash_balance, timestamp) VALUES (?, ?)", (new_cash, ts))
             return True
-             
+
     except Exception as exc:
-        logger.error("Trade failed: %s", exc)
+        logger.error("Trade failed and changes were rolled back: %s", exc)
         return False
+    finally:
+        conn.close()

@@ -15,8 +15,8 @@ def get_finbert_score(content: str):
     if not content:
         return 0.0
 
-    result = finbert(content[:512])
-    label = result["label"]
+    result = finbert(content[:512])[0]
+    label = result["label"].lower()
     score = result["score"]
 
     if label == "positive":
@@ -36,7 +36,8 @@ def fetch_and_store_company_data(comp: str):
 
     articles_to_save = []
     for item in ticker_news:
-        content = item.get("content", {})
+
+        content = item.get("content") or item
         title = content.get("title", "")
         summary = content.get("summary", "")
 
