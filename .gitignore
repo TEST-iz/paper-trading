@@ -2,7 +2,11 @@
 *.pyc
 *.db
 .vscode
+<<<<<<< HEAD
 .venv
 *.db-shm
 *.db-wal
 .python-version
+=======
+test.py
+>>>>>>> 0b382b4c275dc8fe0dbf3f43a32deeedc8e23ff2
