@@ -135,6 +135,12 @@ def save_analysis(comp: str, verdict: str, confidence: float, sentiment: float, 
     except Exception as exc:
         logger.warning("Failed to save analysis: %s", exc)
 
+def get_recent_trades(limit: int = 10):
+    sql = "SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?"
+    with _conn() as c:
+        rows = c.execute(sql, (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
 def get_recent_news(comp: str, limit: int = 10):
     """Fetch news for a ticker to display or analyze."""
     sql = "SELECT * FROM news WHERE comp = ? ORDER BY pub_date DESC LIMIT ?"
