@@ -2,12 +2,33 @@
 *.pyc
 *.db
 .vscode
-<<<<<<< HEAD
 .venv
 *.db-shm
 *.db-wal
 .python-version
-=======
-test.py
->>>>>>> 0b382b4c275dc8fe0dbf3f43a32deeedc8e23ff2
 testdb.py
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
