@@ -1,4 +1,4 @@
-from database import execute_paper_trade, get_recent_news, save_analysis
+from src.database import execute_paper_trade, get_recent_news, save_analysis
 import yfinance as yf
 import logging
 
