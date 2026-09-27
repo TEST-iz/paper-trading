@@ -1,9 +1,7 @@
 import logging
-import src.database
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-import src.strategy
-import src.fetcher
+from . import database, fetcher, strategy
 
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):

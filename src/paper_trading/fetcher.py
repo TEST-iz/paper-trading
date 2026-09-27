@@ -4,7 +4,7 @@ import logging
 import yfinance as yf
 from datetime import datetime
 from transformers import pipeline
-from src.database import init_db, save_news_items
+from src.paper_trading.database import init_db, save_news_items
 
 logger = logging.getLogger(__name__)
 

@@ -23,4 +23,4 @@ requires = ["uv_build>=0.12.11,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.fastapi]
-entrypoint = "test:app"
+entrypoint = "src.paper_trading.api:app"
