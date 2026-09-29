@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from . import database, fetcher, strategy
+from fastapi.middleware.cors import CORSMiddleware
 
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):
@@ -9,6 +10,21 @@ from . import database, fetcher, strategy
 #     yield
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+    "https://localhost:5173",
+    "https://localhost",
+    "http://localhost",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 #testing
 @app.get("/")
