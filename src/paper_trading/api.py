@@ -55,11 +55,12 @@ def get_portfolio():
 @app.post("/fetch_news")
 def fetch_news(company: Company):
     fetcher.fetch_and_store_company_data(company.comp.upper())
-    return company
+    return {"Finished": "yeah"}
 
+#testing purposes
 @app.post("/trade")
 def trade(company: Company):
-    database.execute_paper_trade(company.comp.upper(), "BUY", 10000, 1000.0)
+    database.execute_paper_trade(company.comp.upper(), "BUY", 10, 67.0)
     return {"Finished": "yeah"}
 
 @app.get("/trade_history")
