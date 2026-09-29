@@ -3,11 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from . import database, fetcher, strategy
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):
 #     database.init_db()
 #     yield
+
+class Company(BaseModel):
+    comp: str
+
 
 app = FastAPI()
 
@@ -47,16 +52,14 @@ def get_history(comp: str):
 def get_portfolio():
     return database.get_portfolio()
 
-#should be post for the following three
-@app.get("/fetch_news/{comp}")
-def fetch_news(comp: str):
-    fetcher.fetch_and_store_company_data(comp.upper())
-    return {"Finished": "yeah"}
+@app.post("/fetch_news")
+def fetch_news(company: Company):
+    fetcher.fetch_and_store_company_data(company.comp.upper())
+    return company
 
-#testing
-@app.get("/trade/{comp}")
-def trade(comp: str):
-    database.execute_paper_trade(comp.upper(), "BUY", 10000, 1000.0)
+@app.post("/trade")
+def trade(company: Company):
+    database.execute_paper_trade(company.comp.upper(), "BUY", 10000, 1000.0)
     return {"Finished": "yeah"}
 
 @app.get("/trade_history")
