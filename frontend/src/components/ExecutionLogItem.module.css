@@ -1,0 +1,10 @@
+.item {
+    display: flex;
+    border-radius: 10px;
+    flex-direction: row;
+    justify-content: space-around;
+    border: 2px solid rgb(18,105,204);
+    height: 50px;
+    width: 500px;
+    transition: transform 0.10s ease
+}
