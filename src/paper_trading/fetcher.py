@@ -40,7 +40,7 @@ def fetch_and_store_company_data(comp: str):
     ticker_news = ticker.news
     if not ticker_news:
         logger.warning("No news returned for %s", comp)
-        return
+        return False
 
     articles_to_save = []
     for item in ticker_news:
@@ -64,4 +64,5 @@ def fetch_and_store_company_data(comp: str):
         })
     save_news_items(articles_to_save)
     logger.info("Saved %d articles for %s using Finbert", len(articles_to_save), comp)
+    return True
 
