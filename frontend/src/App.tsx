@@ -15,6 +15,12 @@ function App() {
       shares={10}
       price={1243.3}
     />
+    <ExecutionLogItem 
+      action="SELL"
+      ticker="AAPL"
+      shares={10}
+      price={1243.3}
+    />
     </>
   )
 }
