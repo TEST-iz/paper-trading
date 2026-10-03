@@ -15,8 +15,8 @@ function ExecutionLogItem({ action, ticker, shares, price }: ItemProps) {
 
     return (
         <>
-        <div className="flex h-[50px] w-[350px] flex-row items-center justify-around border-1 border-[#1269cc] mt-0.75">
-            <p>
+        <div className="flex shrink-0 h-[50px] w-[265px] flex-row items-center justify-start border-t-1 border-t-[#1269cc] mt-0.75">
+            <p className="text-sm justify-start">
                 <span className={actionStyle}>[{action}]</span> {ticker} - {shares} shares @ ${price}
             </p>
         </div>
