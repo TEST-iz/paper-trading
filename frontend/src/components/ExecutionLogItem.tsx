@@ -5,13 +5,13 @@ type ItemProps = {
     price: number;
 }
 
-const ACTION_COLORS: Record<string, string> = {
+const ACTION_COLOURS: Record<string, string> = {
         BUY: "text-emerald-500 font-semibold",
         SELL: "text-rose-500 font-semibold",
 };
 
 function ExecutionLogItem({ action, ticker, shares, price }: ItemProps) {    
-    const actionStyle = ACTION_COLORS[action.toUpperCase()] ?? "text-gray-500 font-semibold";
+    const actionStyle = ACTION_COLOURS[action.toUpperCase()] ?? "text-gray-500 font-semibold";
 
     return (
         <>
