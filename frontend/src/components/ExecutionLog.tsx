@@ -4,7 +4,7 @@ function ExecutionLog() {
     return (
         <>
         <div className="flex h-[300px] w-[300px] flex-col items-center border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5 ml-3">
-            <div className="flex flex-col items-start w-full mb-3.5 ml-5 shrink-0">
+            <div className="flex flex-col items-start w-full mb-3 mt-2 ml-5 shrink-0">
                 <p className="text-lg mb-1">EXECUTION AUDIT LOG</p>
                 <p className="text-sm">List of executed paper trades</p>
             </div>

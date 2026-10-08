@@ -28,7 +28,7 @@ function NewsFeedCard({date, title, summary, sent_t, sent_s}: cardProps) {
     
     return (
         <>
-        <div className="flex h-[200px] w-[350px] flex-col justify-around border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5 ml-3">
+        <div className="flex h-[200px] w-[350px] flex-col justify-around border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5 mb-2">
             <p className="text-xs">{englishDate}</p>
             <p className="break-words">{title}</p>
             <p className="line-clamp-3 break-normal text-xs">{summary}</p>
