@@ -8,7 +8,7 @@ const portfolioData = [
 
 function ActivePortfolio() {
   return (
-    <div className="flex h-[300px] w-[700px] flex-col border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5 ml-3">
+    <div className="flex h-[300px] w-[700px] flex-col border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5">
       
         <div className="flex flex-col items-start w-full mb-3 mt-2 ml-3 shrink-0">
             <p className="text-lg mb-1">ACTIVE PORTFOLIO</p>
