@@ -7,24 +7,29 @@ import Graph from './components/Graph'
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
       <Navbar />
-      
-      {/* Main container with max width, centered, and padded from screen borders */}
-      <main className="max-w-[1600px] mx-auto px-6 py-6 flex flex-col gap-6">
-        {/* Graph box */}
+      <div className="flex flex-col mx-6 mt-5 gap-4">
+        {/* Graph takes full width */}
         <div className="w-full">
           <Graph />
         </div>
 
-        {/* Bottom 3 boxes laid out in a responsive grid/flex row with equal spacing */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
-          <ActivePortfolio />
-          <NewsFeed />
-          <ExecutionLog />
+        <div className="flex flex-row gap-2 w-full">
+          <div className="flex-[1.67] min-w-0">
+            <ActivePortfolio />
+          </div>
+          
+          <div className="flex-[1] min-w-0">
+            <NewsFeed />
+          </div>
+          
+          <div className="flex-[1] min-w-0">
+            <ExecutionLog />
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   )
 }
 
