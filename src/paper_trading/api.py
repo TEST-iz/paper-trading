@@ -66,3 +66,9 @@ def trade(company: Company):
 @app.get("/trade_history")
 def get_trades():
     return database.get_recent_trades()
+
+@app.get("/portfolio-history")
+def get_portfolio_history():
+    with database._conn() as c:
+        rows = c.execute("SELECT timestamp, total_value, cash_balance, stock_value, run_type FROM portfolio_snapshots ORDER BY timestamp ASC").fetchall()
+        return [dict(r) for r in rows]

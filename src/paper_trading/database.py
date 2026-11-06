@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 from datetime import datetime, timezone
+import yfinance as yf
 
 DB_PATH = "stock_data.db"
 logger = logging.getLogger(__name__)
@@ -60,6 +61,17 @@ CREATE TABLE IF NOT EXISTS account_state (
 );
 """
 
+_CREATE_SNAPSHOTS_TABLE = """
+CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,
+    cash_balance REAL NOT NULL,
+    stock_value REAL NOT NULL,
+    total_value REAL NOT NULL,
+    run_type TEXT NOT NULL CHECK(run_type IN ('MORNING', 'EVENING'))
+);
+"""
+
 def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
@@ -75,6 +87,7 @@ def init_db(initial_cash: float = 10000.00):
             c.execute(_CREATE_ACCOUNT_TABLE)
             c.execute(_CREATE_PORTFOLIO_TABLE)
             c.execute(_CREATE_TRADES_TABLE)
+            c.execute(_CREATE_SNAPSHOTS_TABLE)
             c.execute("CREATE INDEX IF NOT EXISTS idx_news_comp ON news (comp)")
 
             row = c.execute("SELECT COUNT(*) as count FROM account_state").fetchone()
@@ -162,6 +175,22 @@ def get_portfolio():
     with _conn() as c:
         rows = c.execute("SELECT * FROM portfolio WHERE shares > 0").fetchall()
         return [dict(r) for r in rows]
+    
+def get_current_price(comp: str) -> float:
+    """Fetches the latest available stock price using yfinance."""
+    try:
+        ticker = yf.Ticker(comp.upper())
+        price = ticker.fast_info.get("lastPrice") or ticker.fast_info.get("previousClose")
+        if price:
+            return float(price)
+            
+        hist = ticker.history(period="1d")
+        if not hist.empty:
+            return float(hist["Close"].iloc[-1])
+    except Exception as exc:
+        logger.error("Could not fetch price for %s: %s", comp, exc)
+    return 0.0
+
 
 def execute_paper_trade(comp: str, action: str, shares: int, price: float) -> bool:
     ts = datetime.now(timezone.utc).isoformat()
@@ -226,5 +255,38 @@ def execute_paper_trade(comp: str, action: str, shares: int, price: float) -> bo
     except Exception as exc:
         logger.error("Trade failed and changes were rolled back: %s", exc)
         return False
+    finally:
+        conn.close()
+
+def record_portfolio_snapshot(run_type: str):
+    """Calculates total net worth (Cash + Active Stocks) and saves a snapshot."""
+    conn = _conn()
+    try:
+        with conn:
+            # 1. Get latest cash balance
+            account = conn.execute("SELECT cash_balance FROM account_state ORDER BY id DESC LIMIT 1").fetchone()
+            cash_balance = account["cash_balance"] if account else 0.0
+
+            # 2. Get active stock holdings
+            holdings = conn.execute("SELECT comp, shares FROM portfolio WHERE shares > 0").fetchall()
+            
+            stock_value = 0.0
+            for row in holdings:
+                price = get_current_price(row["comp"])
+                stock_value += row["shares"] * price
+
+            total_value = cash_balance + stock_value
+            timestamp = datetime.now(timezone.utc).isoformat()
+
+            # 3. Save to snapshot table
+            conn.execute(
+                """
+                INSERT INTO portfolio_snapshots (timestamp, cash_balance, stock_value, total_value, run_type)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (timestamp, cash_balance, stock_value, total_value, run_type)
+            )
+    except Exception as exc:
+        logger.error("Failed to record snapshot: %s", exc)
     finally:
         conn.close()

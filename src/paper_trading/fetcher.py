@@ -1,14 +1,21 @@
-import sqlite3
-import pandas as pd
 import logging
+from datetime import datetime, timezone
+import feedparser
 import yfinance as yf
-from datetime import datetime
 from transformers import pipeline
-from src.paper_trading.database import init_db, save_news_items
+from src.paper_trading.database import save_news_items
+import re
+import html
 
 logger = logging.getLogger(__name__)
 
 _finbert_pipeline = None
+
+def clean_html(raw_text: str) -> str:
+    if not raw_text:
+        return ""
+    clean_text = re.sub(r'<[^>]*?>', '', raw_text)
+    return html.unescape(clean_text).strip()
 
 def get_finbert():
     """Lazily load and return the FinBERT pipeline instance."""
@@ -23,46 +30,76 @@ def get_finbert_score(content: str):
         return 0.0
 
     finbert = get_finbert()
-    result = finbert(content[:512])[0]
-    label = result["label"].lower()
-    score = result["score"]
+    try:
+        result = finbert(content[:512])[0]
+        label = result["label"].lower()
+        score = result["score"]
 
-    if label == "positive":
-        return score
-    elif label == "negative":
-        return -score
-    else:
+        if label == "positive":
+            return score
+        elif label == "negative":
+            return -score
+        else:
+            return 0.0
+    except Exception as exc:
+        logger.warning("FinBERT scoring failed: %s", exc)
         return 0.0
 
-def fetch_and_store_company_data(comp: str):
-    ticker = yf.Ticker(comp)
+def get_current_price(comp: str) -> float:
+    """
+    Fetches the latest available stock price using yfinance. 
+    (Prices generally work reliably even when Yahoo News endpoints are down).
+    """
+    try:
+        ticker = yf.Ticker(comp.upper())
+        price = ticker.fast_info.get("lastPrice") or ticker.fast_info.get("previousClose")
+        if price:
+            return float(price)
+            
+        hist = ticker.history(period="1d")
+        if not hist.empty:
+            return float(hist["Close"].iloc[-1])
+    except Exception as exc:
+        logger.error("Could not fetch price for %s: %s", comp, exc)
+    return 0.0
 
-    ticker_news = ticker.news
-    if not ticker_news:
-        logger.warning("No news returned for %s", comp)
+def fetch_and_store_company_data(comp: str):
+    """
+    Fetches news articles for a company using Google News RSS,
+    runs FinBERT sentiment analysis on title and summary, and stores them in SQLite.
+    """
+    # Construct a clean Google News RSS query for the ticker over the last day
+    url = f"https://news.google.com/rss/search?q={comp.upper()}+stock+when:1d"
+    feed = feedparser.parse(url)
+
+    if not feed.entries:
+        logger.warning("No RSS news entries returned for %s", comp)
         return False
 
     articles_to_save = []
-    for item in ticker_news:
+    for entry in feed.entries:
+        title = entry.get("title", "")
+        raw_summary = entry.get("summary", "")
+        summary = clean_html(raw_summary)
+        guid = entry.get("id") or entry.get("link")
+        link = entry.get("link", "")
+        pub_date = entry.get("published", datetime.now(timezone.utc).isoformat())
 
-        content = item.get("content") or item
-        title = content.get("title", "")
-        summary = content.get("summary", "")
-
+        # Run through FinBERT sentiment analysis
         sent_title = get_finbert_score(title)
         sent_summary = get_finbert_score(summary)
 
         articles_to_save.append({
-            "guid": item.get("id"),
+            "guid": guid,
             "comp": comp.upper(),
             "title": title,
             "summary": summary,
-            "url": content.get("canonicalUrl", {}).get("url", ""),
-            "pub_date": content.get("pubDate"),
+            "url": link,
+            "pub_date": pub_date,
             "sentiment_title": sent_title,
             "sentiment_summary": sent_summary
         })
-    save_news_items(articles_to_save)
-    logger.info("Saved %d articles for %s using Finbert", len(articles_to_save), comp)
-    return True
 
+    save_news_items(articles_to_save)
+    logger.info("Saved %d articles for %s using RSS feed & FinBERT", len(articles_to_save), comp)
+    return True
