@@ -3,7 +3,7 @@ import NewsFeedCard from "./NewsFeedCard";
 function NewsFeed() {
     return (
         <>
-        <div className="flex h-[500px] w-full flex-col items-center border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5">
+        <div className="flex h-[450px] w-full flex-col items-center border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5">
             <div className="flex flex-col items-start w-full mb-1 mt-2 ml-5 shrink-0">
                 <p className="text-lg mb-1"> RECENT NEWS FEED</p>
             </div>
