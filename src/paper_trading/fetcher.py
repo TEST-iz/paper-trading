@@ -45,31 +45,13 @@ def get_finbert_score(content: str):
         logger.warning("FinBERT scoring failed: %s", exc)
         return 0.0
 
-def get_current_price(comp: str) -> float:
-    """
-    Fetches the latest available stock price using yfinance. 
-    (Prices generally work reliably even when Yahoo News endpoints are down).
-    """
-    try:
-        ticker = yf.Ticker(comp.upper())
-        price = ticker.fast_info.get("lastPrice") or ticker.fast_info.get("previousClose")
-        if price:
-            return float(price)
-            
-        hist = ticker.history(period="1d")
-        if not hist.empty:
-            return float(hist["Close"].iloc[-1])
-    except Exception as exc:
-        logger.error("Could not fetch price for %s: %s", comp, exc)
-    return 0.0
-
 def fetch_and_store_company_data(comp: str):
     """
     Fetches news articles for a company using Google News RSS,
     runs FinBERT sentiment analysis on title and summary, and stores them in SQLite.
     """
     # Construct a clean Google News RSS query for the ticker over the last day
-    url = f"https://news.google.com/rss/search?q={comp.upper()}+stock+when:1d"
+    url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={comp.upper()}&region=US&lang=en-US"
     feed = feedparser.parse(url)
 
     if not feed.entries:

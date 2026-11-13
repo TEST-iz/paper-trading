@@ -12,7 +12,9 @@ def calculate_combined_sentiment(news_items: list[dict]):
         summary_score = item.get("sentiment_summary") or 0.0
 
         article_score = (0.6 * title_score) + (0.4 * summary_score)
-        combined_scores.append(article_score)
+
+        if article_score != 0.0:
+            combined_scores.append(article_score)
 
     return sum(combined_scores) / len(combined_scores) if combined_scores else 0.0
 
