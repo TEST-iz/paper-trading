@@ -36,6 +36,7 @@ _CREATE_PORTFOLIO_TABLE = """
 CREATE TABLE IF NOT EXISTS portfolio (
     comp TEXT PRIMARY KEY,
     shares INTEGER NOT NULL DEFAULT 0,
+    last_price INTEGER,
     updated_at TEXT NOT NULL
 );
 """
@@ -148,13 +149,26 @@ def save_analysis(comp: str, verdict: str, confidence: float, sentiment: float, 
     except Exception as exc:
         logger.warning("Failed to save analysis: %s", exc)
 
+def get_analysis(limit: int = 10):
+    sql = "SELECT * FROM analysis_history ORDER BY pub_date DESC LIMIT?"
+    with _conn() as c:
+        rows = c.execute(sql, (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
 def get_recent_trades(limit: int = 10):
     sql = "SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?"
     with _conn() as c:
         rows = c.execute(sql, (limit,)).fetchall()
         return [dict(r) for r in rows]
 
-def get_recent_news(comp: str, limit: int = 10):
+def get_recent_news(limit: int = 10):
+    """Fetch news for a ticker to display or analyze."""
+    sql = "SELECT * FROM news ORDER BY pub_date DESC LIMIT ?"
+    with _conn() as c:
+        rows = c.execute(sql, (limit,)).fetchall()
+        return [dict(r) for r in rows]
+    
+def get_recent_news_comp(comp: str, limit: int = 10):
     """Fetch news for a ticker to display or analyze."""
     sql = "SELECT * FROM news WHERE comp = ? ORDER BY pub_date DESC LIMIT ?"
     with _conn() as c:
@@ -223,9 +237,9 @@ def execute_paper_trade(comp: str, action: str, shares: int, price: float) -> bo
                 
                 curr_pos = conn.execute("SELECT shares FROM portfolio WHERE comp = ?", (comp,)).fetchone()
                 if curr_pos:
-                    conn.execute("UPDATE portfolio SET shares = ?, updated_at = ? WHERE comp = ?", (curr_pos["shares"] + shares, ts, comp))
+                    conn.execute("UPDATE portfolio SET shares = ?, last_price = ?, updated_at = ? WHERE comp = ?", (curr_pos["shares"] + shares, price, ts, comp))
                 else:
-                    conn.execute("INSERT INTO portfolio (comp, shares, updated_at) VALUES (?, ?, ?)", (comp, shares, ts))
+                    conn.execute("INSERT INTO portfolio (comp, shares, last_price, updated_at) VALUES (?, ?, ?, ?)", (comp, shares, price, ts))
 
             elif action == "SELL":
                 curr_pos = conn.execute("SELECT shares FROM portfolio WHERE comp = ?", (comp,)).fetchone()
@@ -244,7 +258,7 @@ def execute_paper_trade(comp: str, action: str, shares: int, price: float) -> bo
                 if new_shares == 0:
                     conn.execute("DELETE FROM portfolio WHERE comp = ?", (comp,))
                 else:
-                    conn.execute("UPDATE portfolio SET shares = ?, updated_at = ? WHERE comp = ?", (new_shares, ts, comp))
+                    conn.execute("UPDATE portfolio SET shares = ?, last_price = ?, updated_at = ? WHERE comp = ?", (new_shares, price, ts, comp))
 
             else:
                 return False

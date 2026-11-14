@@ -1,4 +1,5 @@
 import logging
+from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 import feedparser
 import yfinance as yf
@@ -65,7 +66,11 @@ def fetch_and_store_company_data(comp: str):
         summary = clean_html(raw_summary)
         guid = entry.get("id") or entry.get("link")
         link = entry.get("link", "")
-        pub_date = entry.get("published", datetime.now(timezone.utc).isoformat())
+        raw_pub = entry.get("published", datetime.now(timezone.utc).isoformat())
+        try:
+            pub_date = parsedate_to_datetime(raw_pub).astimezone(timezone.utc).isoformat() if raw_pub else datetime.now(timezone.utc).isoformat()
+        except Exception:
+            pub_date = datetime.now(timezone.utc).isoformat()
 
         # Run through FinBERT sentiment analysis
         sent_title = get_finbert_score(title)

@@ -36,9 +36,13 @@ app.add_middleware(
 def root():
     return {"Hello": "world"}
 
+@app.get("/news/")
+def get_news():
+    return database.get_recent_news(10)
+
 @app.get("/news/{comp}")
 def get_news(comp: str):
-    return database.get_recent_news(comp.upper(), 10)
+    return database.get_recent_news_comp(comp, 10)
 
 @app.get("/account")
 def get_account():
@@ -60,7 +64,7 @@ def fetch_news(company: Company):
 #testing purposes
 @app.post("/trade")
 def trade(company: Company):
-    database.execute_paper_trade(company.comp.upper(), "SELL", 5, 420.67)
+    database.execute_paper_trade(company.comp.upper(), "BUY", 100, 10.0)
     return {"Finished": "yeah"}
 
 @app.get("/trade_history")
@@ -78,3 +82,12 @@ def get_portfolio_history(k: int = 30):
 def create_portfolio_history():
     database.record_portfolio_snapshot("EVENING")
     return {"Finished": "yeah"}
+
+@app.post("/strategy/{comp}")
+def run_strategy(comp: str):
+    strategy.run_strategy(comp)
+    return {"Finished": "yeah"}
+
+@app.get("/analysis")
+def get_analysis():
+    return database.get_analysis()

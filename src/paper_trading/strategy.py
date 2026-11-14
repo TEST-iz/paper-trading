@@ -1,4 +1,4 @@
-from src.paper_trading.database import execute_paper_trade, get_recent_news, save_analysis
+from src.paper_trading.database import execute_paper_trade, get_recent_news_comp, save_analysis
 import yfinance as yf
 import logging
 
@@ -19,16 +19,16 @@ def calculate_combined_sentiment(news_items: list[dict]):
     return sum(combined_scores) / len(combined_scores) if combined_scores else 0.0
 
 def run_strategy(comp: str):
-    news_items = get_recent_news(comp)
+    news_items = get_recent_news_comp(comp)
     
     if not news_items:
         return False
 
     avg_sentiment = calculate_combined_sentiment(news_items)
-    if avg_sentiment > 0.20:
+    if avg_sentiment > 0.05:
         verdict = "BUY"
         confidence = min((avg_sentiment - 0.2) / (1.0 - 0.2), 1.0)
-    elif avg_sentiment < -0.20:
+    elif avg_sentiment < -0.5:
         verdict = "SELL"
         confidence = min((abs(avg_sentiment) - 0.2) / (1.0 - 0.2), 1.0)
     else:

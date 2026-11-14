@@ -1,6 +1,35 @@
+import { useEffect, useState} from 'react';
 import ExecutionLogItem from "./ExecutionLogItem";
 
+type Trade = {
+    id: number;
+    comp: string;
+    action: 'BUY' | 'SELL';
+    shares: number;
+    price: number;
+    total_amount: number;
+    timestamp: string;
+}
+
+
 function ExecutionLog() {
+
+    const [data, setData] = useState<Trade[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch('http://localhost:8000/trade_history')
+            .then(res => res.json())
+            .then((result: Trade[]) => {
+                setData(result);
+                setLoading(false);
+            })
+            .catch(err => {
+                console.log("Error", err);
+                setLoading(false);
+            });
+    }, []);
+
     return (
         <>
         <div className="flex h-[450px] w-full flex-col items-center border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5">
@@ -10,7 +39,19 @@ function ExecutionLog() {
             </div>
 
             <div className="flex-1 min-h-0 w-full overflow-y-auto flex flex-col items-center px-2.5">
-                <ExecutionLogItem 
+                {loading ? "Loading..." :
+                    data.map((item) => (
+                        <ExecutionLogItem 
+                            key={item.id}
+                            ticker={item.comp}
+                            action={item.action}
+                            shares={item.shares}
+                            price={item.price}
+                        />
+                    ))  
+                }
+                
+                {/* <ExecutionLogItem 
                     action="SELL"
                     ticker="AAPL"
                     shares={10}
@@ -39,7 +80,7 @@ function ExecutionLog() {
                     ticker="TSLA"
                     shares={1}
                     price={4.00}
-                    />
+                    /> */}
             </div>
         </div>
         </>

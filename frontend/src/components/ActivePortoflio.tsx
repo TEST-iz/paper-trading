@@ -1,12 +1,31 @@
-const portfolioData = [
-  { id: 1, ticker: 'AAPL', shares: 25, lastPrice: 189.50 },
-  { id: 2, ticker: 'MSFT', shares: 10, lastPrice: 420.75 },
-  { id: 2, ticker: 'MSFT', shares: 10, lastPrice: 420.75 },
-  { id: 2, ticker: 'MSFT', shares: 10, lastPrice: 420.75 },
-  { id: 2, ticker: 'MSFT', shares: 10, lastPrice: 420.75 },
-];
+import { useEffect, useState } from 'react';
+
+type Portfolio = {
+    comp: string;
+    shares: number;
+    last_price: number;
+    updated_at: string
+}
 
 function ActivePortfolio() {
+
+  const [data, setData] = useState<Portfolio[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/portfolio')
+      .then(res => res.json())
+      .then((result: Portfolio[]) => {
+        setData(result);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.log("Error", err);
+        setLoading(false);
+      });
+  }, [])
+
+
   return (
     <div className="flex h-[450px] w-full flex-col border-1 border-[#1269cc] rounded-lg mt-0.75 p-1.5">
       
@@ -24,13 +43,15 @@ function ActivePortfolio() {
             </tr>
           </thead>
           <tbody className="divide-y text-sm">
-            {portfolioData.map((item) => (
-              <tr key={item.id} className="">
-                <td className="py-4">{item.ticker}</td>
+            {loading ? "Loading..." : 
+              data.map((item) => (
+              <tr key={item.comp} className="">
+                <td className="py-4">{item.comp}</td>
                 <td className="py-4">{item.shares}</td>
-                <td className="py-4 text-right">${item.lastPrice.toFixed(2)}</td>
+                <td className="py-4 text-right">${item.last_price.toFixed(2)}</td>
               </tr>
-            ))}
+            ))
+            }
           </tbody>
         </table>
       </div>
